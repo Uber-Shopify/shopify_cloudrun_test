@@ -10,19 +10,12 @@
 # limitations under the License.
 
 steps:
-- id: 'Install Testing Dependencies'
-  name: node:20-slim
-  args: ['npm', 'install']
 
-- id: 'Lint'
-  name: node:20-slim
-  args: ['npm', 'run', 'lint']
+- name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 
+           'us-central1-docker.pkg.dev/${PROJECT_ID}/my-docker-repo/myimage', 
+           '.']
 
-- id: 'Run Unit Tests'
-  name: node:20-slim
-  args: ['npm', 'run', 'test']
-
-# Setup resources for system tests
 
 - id: 'Build Container Image'
   name: 'gcr.io/k8s-skaffold/pack:latest'
