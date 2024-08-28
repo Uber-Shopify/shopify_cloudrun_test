@@ -1,23 +1,40 @@
+
+
+
 steps:
-  # Docker Build
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 
-           'us-central1-docker.pkg.dev/${PROJECT_ID}/my-docker-repo/myimage', 
-           '.']
 
-  # Docker Push
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 
-           'us-central1-docker.pkg.dev/${PROJECT_ID}/my-docker-repo/myimage']
+- id: 'Build Container Image'
+  name: 'gcr.io/k8s-skaffold/pack:latest'
+  entrypoint: pack
+  args:
+    - build
+    - '$_GCR_HOSTNAME/$PROJECT_ID/$_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA' # Tag docker image with git commit SHA
+    - '--builder=gcr.io/buildpacks/builder:latest'
+    - '--path=.'
 
-  # Entrypoint, timeout and environment variables
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'gcloud'
-    timeout: 240s
-    args: ['compute', 'instances', 
-           'create-with-container', 'my-vm-name',
-           '--container-image', 
-           'us-central1-docker.pkg.dev/${PROJECT_ID}/my-docker-repo/myimage']
-    env:
-      - 'CLOUDSDK_COMPUTE_REGION=us-central1'
-      - 'CLOUDSDK_COMPUTE_ZONE=us-central1-a'
+- id: 'Push Container Image'
+  name: 'gcr.io/cloud-builders/docker:latest'
+  args:
+    - push
+    - '$_GCR_HOSTNAME/$PROJECT_ID/$_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA'
+
+- id: 'Deploy to Cloud Run'
+  name: 'gcr.io/cloud-builders/gcloud:latest'
+  entrypoint: /bin/bash
+  args:
+    - '-c'
+    - |
+      gcloud run deploy ${_SERVICE_NAME}-$BUILD_ID \
+        --image $_GCR_HOSTNAME/$PROJECT_ID/$_REPOSITORY/$REPO_NAME/$_SERVICE_NAME:$COMMIT_SHA \
+        --region ${_DEPLOY_REGION} \
+        --no-allow-unauthenticated
+
+
+
+
+
+substitutions:
+  _GCR_HOSTNAME: us-central1-docker.pkg.dev
+  _SERVICE_NAME: microservice-template
+  _DEPLOY_REGION: us-central1
+  _REPOSITORY: samples
